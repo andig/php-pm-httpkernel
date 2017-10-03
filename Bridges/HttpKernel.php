@@ -45,6 +45,7 @@ class HttpKernel implements BridgeInterface
      * @param string $appBootstrap The name of the class used to bootstrap the application
      * @param string|null $appenv The environment your application will use to bootstrap (if any)
      * @param boolean $debug If debug is enabled
+     * @param LoopInterface $loop Event loop
      * @see http://stackphp.com
      */
     public function bootstrap($appBootstrap, $appenv, $debug, LoopInterface $loop)
