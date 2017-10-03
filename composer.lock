@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "a489cd0d3fe8f2c230068907c4e506d3",
+    "content-hash": "9d0498dc9e14bd76edccec0fcdf06b7d",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -281,12 +281,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/andig/php-pm.git",
-                "reference": "6673a6087dc05cd3c03e6cb83cd9136520b79053"
+                "reference": "ad317ae6312f96c3102c5de0d0390665c20228ac"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/andig/php-pm/zipball/6673a6087dc05cd3c03e6cb83cd9136520b79053",
-                "reference": "6673a6087dc05cd3c03e6cb83cd9136520b79053",
+                "url": "https://api.github.com/repos/andig/php-pm/zipball/ad317ae6312f96c3102c5de0d0390665c20228ac",
+                "reference": "ad317ae6312f96c3102c5de0d0390665c20228ac",
                 "shasum": ""
             },
             "require": {
@@ -331,7 +331,7 @@
             "support": {
                 "source": "https://github.com/andig/php-pm/tree/react-0.8"
             },
-            "time": "2017-10-03T14:07:54+00:00"
+            "time": "2017-10-03T14:13:31+00:00"
         },
         {
             "name": "psr/http-message",

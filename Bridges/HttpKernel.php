@@ -11,6 +11,7 @@ use React\EventLoop\LoopInterface;
 use React\Http\Response;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use RingCentral\Psr7;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -116,7 +117,7 @@ class HttpKernel implements BridgeInterface
     {
         $method = $psrRequest->getMethod();
         $headers = $psrRequest->getHeaders();
-        $query = $psrRequest->getQuery();
+        $query = $psrRequest->getQueryParams();
 
         $_COOKIE = [];
 
@@ -142,8 +143,10 @@ class HttpKernel implements BridgeInterface
             session_id(Utils::generateSessionId());
         }
 
-        $files = $psrRequest->getFiles();
-        $post = $psrRequest->getPost();
+        $files = $psrRequest->getUploadedFiles();
+
+        // @todo check howto support other HTTP methods with bodies
+        $post = $method == 'POST' ? $psrRequest->getParsedBody() : array();
 
         if ($this->bootstrap instanceof RequestClassProviderInterface) {
             $class = $this->bootstrap->requestClass();
@@ -249,7 +252,7 @@ class HttpKernel implements BridgeInterface
             $psrResponse = $psrResponse->withAddedHeader('Content-Length', strlen($content));
         }
 
-        $psrResponse = $psrResponse->withBody($content);
+        $psrResponse = $psrResponse->withBody(Psr7\stream_for($content));
 
         return $psrResponse;
     }

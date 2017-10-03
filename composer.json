@@ -3,9 +3,10 @@
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require": {
+        "php-pm/php-pm": "dev-react-0.8",
         "symfony/http-foundation": "^2.6|^3.0",
         "symfony/http-kernel": "^2.6|^3.0",
-        "php-pm/php-pm": "dev-react-0.8"
+        "ringcentral/psr7": "^1.2"
     },
     "autoload": {
         "psr-4": {
