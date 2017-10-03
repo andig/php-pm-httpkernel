@@ -6,10 +6,11 @@ use PHPPM\Bootstraps\ApplicationEnvironmentAwareInterface;
 use PHPPM\Bootstraps\BootstrapInterface;
 use PHPPM\Bootstraps\HooksInterface;
 use PHPPM\Bootstraps\RequestClassProviderInterface;
-use PHPPM\React\HttpResponse;
 use PHPPM\Utils;
 use React\EventLoop\LoopInterface;
-use React\Http\Request as ReactRequest;
+use React\Http\Response;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -57,24 +58,15 @@ class HttpKernel implements BridgeInterface
             $this->application = $this->bootstrap->getApplication();
         }
     }
-
+    
     /**
-     * {@inheritdoc}
-     */
-    public function getStaticDirectory()
-    {
-        return $this->bootstrap->getStaticDirectory();
-    }
-
-    /**
-     * Handle a request using a HttpKernelInterface implementing application.
+     * Handle the request and return a response.
      *
-     * @param ReactRequest $request
-     * @param HttpResponse $response
+     * @param ServerRequestInterface $request
      *
-     * @throws \Exception
+     * @return ResponseInterface
      */
-    public function onRequest(ReactRequest $request, HttpResponse $response)
+    public function handle(ServerRequestInterface $request)
     {
         if (null === $this->application) {
             return;
@@ -105,7 +97,7 @@ class HttpKernel implements BridgeInterface
         // should not receive output from application->handle()
         @ob_end_clean();
 
-        $this->mapResponse($response, $syResponse);
+        $psrResponse = $this->mapResponse($syResponse);
 
         if ($this->application instanceof TerminableInterface) {
             $this->application->terminate($syRequest, $syResponse);
@@ -114,6 +106,8 @@ class HttpKernel implements BridgeInterface
         if ($this->bootstrap instanceof HooksInterface) {
             $this->bootstrap->postHandle($this->application);
         }
+
+        return $psrResponse;
     }
 
     /**
@@ -122,11 +116,11 @@ class HttpKernel implements BridgeInterface
      * @param ReactRequest $reactRequest
      * @return SymfonyRequest $syRequest
      */
-    protected function mapRequest(ReactRequest $reactRequest)
+    protected function mapRequest(ServerRequestInterface $psrRequest)
     {
-        $method = $reactRequest->getMethod();
-        $headers = $reactRequest->getHeaders();
-        $query = $reactRequest->getQuery();
+        $method = $psrRequest->getMethod();
+        $headers = $psrRequest->getHeaders();
+        $query = $psrRequest->getQuery();
 
         $_COOKIE = [];
 
@@ -152,18 +146,18 @@ class HttpKernel implements BridgeInterface
             session_id(Utils::generateSessionId());
         }
 
-        $files = $reactRequest->getFiles();
-        $post = $reactRequest->getPost();
+        $files = $psrRequest->getFiles();
+        $post = $psrRequest->getPost();
 
         if ($this->bootstrap instanceof RequestClassProviderInterface) {
             $class = $this->bootstrap->requestClass();
         }
         else {
-            $class = '\Symfony\Component\HttpFoundation\Request';
+            $class = SymfonyRequest::class;
         }
 
         /** @var SymfonyRequest $syRequest */
-        $syRequest = new $class($query, $post, $attributes = [], $_COOKIE, $files, $_SERVER, $reactRequest->getBody());
+        $syRequest = new $class($query, $post, $attributes = [], $_COOKIE, $files, $_SERVER, $psrRequest->getBody());
 
         $syRequest->setMethod($method);
 
@@ -173,10 +167,10 @@ class HttpKernel implements BridgeInterface
     /**
      * Convert Symfony\Component\HttpFoundation\Response to React\Http\Response
      *
-     * @param HttpResponse $reactResponse
      * @param SymfonyResponse $syResponse
+     « @return ResponseInterface
      */
-    protected function mapResponse(HttpResponse $reactResponse, SymfonyResponse $syResponse)
+    protected function mapResponse(SymfonyResponse $syResponse)
     {
         // end active session
         if (PHP_SESSION_ACTIVE === session_status()) {
@@ -241,33 +235,27 @@ class HttpKernel implements BridgeInterface
             $headers['Set-Cookie'] = $cookies;
         }
 
+        $psrResponse = new Response($syResponse->getStatusCode(), $headers);
+
+        // get contents
+        ob_start();
         if ($syResponse instanceof SymfonyStreamedResponse) {
-            $reactResponse->writeHead($syResponse->getStatusCode(), $headers);
-
-            // asynchronously get content
-            ob_start(function($buffer) use ($reactResponse) {
-                $reactResponse->write($buffer);
-                return '';
-            }, 4096);
-
             $syResponse->sendContent();
-
-            // flush remaining content
-            @ob_end_flush();
-            $reactResponse->end();
+            $content = @ob_get_clean();
         }
         else {
             ob_start();
             $content = $syResponse->getContent();
             @ob_end_flush();
-
-            if (!isset($headers['Content-Length'])) {
-                $headers['Content-Length'] = strlen($content);
-            }
-
-            $reactResponse->writeHead($syResponse->getStatusCode(), $headers);
-            $reactResponse->end($content);
         }
+
+        if (!isset($headers['Content-Length'])) {
+            $psrResponse = $psrResponse->withAddedHeader('Content-Length', strlen($content));
+        }
+
+        $psrResponse = $psrResponse->withBody($content);
+
+        return $psrResponse;
     }
 
     /**
