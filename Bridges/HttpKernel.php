@@ -146,7 +146,7 @@ class HttpKernel implements BridgeInterface
         $files = $psrRequest->getUploadedFiles();
 
         // @todo check howto support other HTTP methods with bodies
-        $post = $method == 'POST' ? $psrRequest->getParsedBody() : array();
+        $post = $psrRequest->getParsedBody() ?: array();
 
         if ($this->bootstrap instanceof RequestClassProviderInterface) {
             $class = $this->bootstrap->requestClass();
