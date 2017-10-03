@@ -15,5 +15,10 @@
             "type": "vcs",
             "url": "https://github.com/andig/php-pm"
         }
-    ]
+    ],
+    "config": {
+       "platform": {
+           "php": "5.6"
+       }
+    }
 }
