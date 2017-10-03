@@ -60,11 +60,7 @@ class HttpKernel implements BridgeInterface
     }
     
     /**
-     * Handle the request and return a response.
-     *
-     * @param ServerRequestInterface $request
-     *
-     * @return ResponseInterface
+     * {@inheritdoc}
      */
     public function handle(ServerRequestInterface $request)
     {
