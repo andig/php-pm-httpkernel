@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse as SymfonyStreamedResponse;
 use Symfony\Component\HttpKernel\TerminableInterface;
 
-class HttpKernel implements BridgeInterface
+class HttpKernel extends AbstractBridge
 {
     /**
      * An application implementing the HttpKernelInterface
@@ -27,36 +27,17 @@ class HttpKernel implements BridgeInterface
     protected $application;
 
     /**
-     * @var BootstrapInterface
-     */
-    protected $bootstrap;
-
-    /**
-     * Bootstrap an application implementing the HttpKernelInterface.
-     *
-     * In the process of bootstrapping we decorate our application with any number of
-     * *middlewares* using StackPHP's Stack\Builder.
-     *
-     * The app bootstraping itself is actually proxied off to an object implementing the
-     * PHPPM\Bridges\BridgeInterface interface which should live within your app itself and
-     * be able to be autoloaded.
-     *
-     * @param string $appBootstrap The name of the class used to bootstrap the application
-     * @param string|null $appenv The environment your application will use to bootstrap (if any)
-     * @param boolean $debug If debug is enabled
-     * @param LoopInterface $loop Event loop
+     * {@inheritdoc}
      */
     public function bootstrap($appBootstrap, $appenv, $debug, LoopInterface $loop)
     {
-        $appBootstrap = $this->normalizeAppBootstrap($appBootstrap);
+        parent::bootstrap($appBootstrap, $appenv, $debug, $loop);
 
-        $this->bootstrap = new $appBootstrap();
-        if ($this->bootstrap instanceof ApplicationEnvironmentAwareInterface) {
-            $this->bootstrap->initialize($appenv, $debug);
+        if (!$this->middleware instanceof BootstrapInterface) {
+            throw new \Exception('Middleware must implement BootstrapInterface');
         }
-        if ($this->bootstrap instanceof BootstrapInterface) {
-            $this->application = $this->bootstrap->getApplication();
-        }
+
+        $this->application = $this->middleware->getApplication();
     }
     
     /**
@@ -77,8 +58,8 @@ class HttpKernel implements BridgeInterface
         ob_start();
 
         try {
-            if ($this->bootstrap instanceof HooksInterface) {
-                $this->bootstrap->preHandle($this->application);
+            if ($this->middleware instanceof HooksInterface) {
+                $this->middleware->preHandle($this->application);
             }
 
             $syResponse = $this->application->handle($syRequest);
@@ -100,8 +81,8 @@ class HttpKernel implements BridgeInterface
             $this->application->terminate($syRequest, $syResponse);
         }
 
-        if ($this->bootstrap instanceof HooksInterface) {
-            $this->bootstrap->postHandle($this->application);
+        if ($this->middleware instanceof HooksInterface) {
+            $this->middleware->postHandle($this->application);
         }
 
         return $response;
@@ -148,8 +129,8 @@ class HttpKernel implements BridgeInterface
         // @todo check howto support other HTTP methods with bodies
         $post = $psrRequest->getParsedBody() ?: array();
 
-        if ($this->bootstrap instanceof RequestClassProviderInterface) {
-            $class = $this->bootstrap->requestClass();
+        if ($this->middleware instanceof RequestClassProviderInterface) {
+            $class = $this->middleware->requestClass();
         }
         else {
             $class = SymfonyRequest::class;
@@ -255,27 +236,5 @@ class HttpKernel implements BridgeInterface
         $psrResponse = $psrResponse->withBody(Psr7\stream_for($content));
 
         return $psrResponse;
-    }
-
-    /**
-     * @param $appBootstrap
-     * @return string
-     * @throws \RuntimeException
-     */
-    protected function normalizeAppBootstrap($appBootstrap)
-    {
-        $appBootstrap = str_replace('\\\\', '\\', $appBootstrap);
-
-        $bootstraps = [
-            $appBootstrap,
-            '\\' . $appBootstrap,
-            '\\PHPPM\Bootstraps\\' . ucfirst($appBootstrap)
-        ];
-
-        foreach ($bootstraps as $class) {
-            if (class_exists($class)) {
-                return $class;
-            }
-        }
     }
 }
