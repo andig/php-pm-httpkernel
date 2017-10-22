@@ -8,7 +8,6 @@ use PHPPM\Bootstraps\HooksInterface;
 use PHPPM\Bootstraps\RequestClassProviderInterface;
 use PHPPM\Utils;
 use React\EventLoop\LoopInterface;
-use React\Http\Response;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use RingCentral\Psr7;
@@ -46,7 +45,6 @@ class HttpKernel implements BridgeInterface
      * @param string|null $appenv The environment your application will use to bootstrap (if any)
      * @param boolean $debug If debug is enabled
      * @param LoopInterface $loop Event loop
-     * @see http://stackphp.com
      */
     public function bootstrap($appBootstrap, $appenv, $debug, LoopInterface $loop)
     {
@@ -67,7 +65,8 @@ class HttpKernel implements BridgeInterface
     public function handle(ServerRequestInterface $request)
     {
         if (null === $this->application) {
-            return;
+            // internal server error
+            return new Psr7\Response(500, ['Content-type' => 'text/plain'], 'Application not configured during bootstrap');
         }
 
         $syRequest = $this->mapRequest($request);
@@ -84,18 +83,18 @@ class HttpKernel implements BridgeInterface
 
             $syResponse = $this->application->handle($syRequest);
         } catch (\Exception $exception) {
-            $response->writeHead(500); // internal server error
-            $response->end();
+            // internal server error
+            $response = new Psr7\Response(500, ['Content-type' => 'text/plain'], $exception->getMessage());
 
             // end buffering if we need to throw
             @ob_end_clean();
-            throw $exception;
+            return $response;
         }
 
         // should not receive output from application->handle()
         @ob_end_clean();
 
-        $psrResponse = $this->mapResponse($syResponse);
+        $response = $this->mapResponse($syResponse);
 
         if ($this->application instanceof TerminableInterface) {
             $this->application->terminate($syRequest, $syResponse);
@@ -105,7 +104,7 @@ class HttpKernel implements BridgeInterface
             $this->bootstrap->postHandle($this->application);
         }
 
-        return $psrResponse;
+        return $response;
     }
 
     /**
